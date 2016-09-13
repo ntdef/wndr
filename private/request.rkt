@@ -3,7 +3,6 @@
          net/uri-codec
          net/url)
 
-
 (define (try-read-json in-port)
   (with-handlers ([exn:fail? (λ (exn) (displayln (port->string in-port)))])
     (read-json in-port)))
@@ -21,8 +20,7 @@
   (λ (url [header '()])
     (get-pure-port url (cons "Accept: application/json" header))))
 
-(struct request (method url data header)
-  #:transparent)
+(struct request (method url data header) #:transparent)
 
 (define make-request
   (case-lambda [(method url data header)
@@ -73,17 +71,29 @@
 
 (define my-get-req (make-request 'GET "https://httpbin.org/get"))
 
-(define wl-request
-  (make-request 'POST
-                "http://localhost:9000"
-                (string->bytes/utf-8 "hello!")))
+(define (make-wl-request-helper config method path data)
+  (let* ([client-id  (config-client-id config)]
+         [token      (config-token config)]
+         [header     (wl-api-header client-id token)]
+         [path       (wl-path path)]
+         [wl-request (make-request method path #"" header)])
+    wl-request))
+
+(define make-wl-request
+  (let ([helper-fn (λ (config method path #:data [data #""])
+                     (let* ([client-id  (config-client-id config)]
+                         [token      (config-token config)]
+                         [header     (wl-api-header client-id token)]
+                         [path       (wl-path path)]
+                         [wl-request (make-request method path data header)])
+                    wl-request))])
+    (case-lambda [(config path) (helper-fn config 'GET path)]
+                 [(config method path) (helper-fn config method path)])))
 
 (define (wl-auth-params this-id uri this-state)
   (list (cons 'client_id this-id)
         (cons 'redirect_uri uri)
         (cons 'state this-state)))
-
-(define my-client-id "")
 
 (define my-client-secret "")
 
@@ -91,13 +101,9 @@
 
 (define my-redirect-uri "")
 
-(define my-params
-  (wl-auth-params my-client-id my-redirect-uri my-secret-state))
-
-(string-append "http://wunderlist.com/oauth/authorize?"
-               (alist->form-urlencoded my-params))
-
 (define my-auth-code "")
+
+(define my-client-id "")
 
 (define payload
   (hash 'client_id my-client-id
@@ -114,20 +120,13 @@
                 "http://httpbin.org/post"
                 (jsexpr->bytes payload)))
 
-(define my-access-token
-  (hash-ref (request-fetch/json wl-first-req) 'access_token))
-
 
 (define (wl-api-header client-id token)
   (list (string-append "X-Access-Token: " token)
         (string-append "X-Client-ID: " client-id)))
 
-(define my-header
-  (wl-api-header my-client-id my-access-token))
-
-
-(define (wl-path path)
-  (string-append "http://a.wunderlist.com/api/v1" path))
+(define (wl-path . path)
+  (apply string-append "http://a.wunderlist.com/api/v1" path))
 
 (define (wl-lists config)
   (let* ([client-id (config-client-id config)]
@@ -138,7 +137,19 @@
          [wl-request (make-request 'GET path #"" header)])
     (request-fetch/json wl-request)))
 
+(define ((wl-list-single-by-id ls-id) config)
+  (let* ([client-id (config-client-id config)]
+         [token (config-token config)]
+         [header (wl-api-header client-id token)]
+         [path (wl-path "/lists" "/" ls-id)]
+         ;; TODO Fix the arity options for make-request
+         [wl-request (make-request 'GET path #"" header)])
+    (request-fetch/json wl-request)))
+
 (struct config (client-id token))
+
+
+(define my-access-token "")
 
 (define my-config (config my-client-id my-access-token))
 

@@ -54,7 +54,7 @@
                               #'((name description long-description body ...)
                                  accum formals arg-help-strs final-expr)]))
                          (syntax->list #'(clause ...)))])
-       (with-syntax ([(n ...) (generate-temporaries #'(name ...))])
+      (with-syntax ([(n ...) (generate-temporaries #'(name ...))])
          #'(let* ([p prog]
                   [a args]
                   [n name] ...
