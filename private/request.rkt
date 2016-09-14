@@ -7,19 +7,6 @@
   (with-handlers ([exn:fail? (λ (exn) (displayln (port->string in-port)))])
     (read-json in-port)))
 
-(define (request-json-post data)
-  (λ (url [adtl-headers '()])
-    (let ([payload (jsexpr->bytes data)]
-          [header (cons "Content-Type: application/json"
-                        adtl-headers)])
-      (post-pure-port url
-                      payload
-                      header))))
-
-(define (request-json-get)
-  (λ (url [header '()])
-    (get-pure-port url (cons "Accept: application/json" header))))
-
 (struct request (method url data header) #:transparent)
 
 (define make-request
@@ -45,7 +32,6 @@
   (let ([method (request-method-pure-port request)])
     (method url header)))
 
-
 (define (request-header/json request)
   ;; By default, you're always going to want the `Accept` header
   (let ([header (cons "Accept: application/json" (request-header request))]
@@ -68,8 +54,6 @@
                     (request-pure-port request)
                     handle
                     header)))
-
-(define my-get-req (make-request 'GET "https://httpbin.org/get"))
 
 (define (make-wl-request-helper config method path data)
   (let* ([client-id  (config-client-id config)]
@@ -95,7 +79,6 @@
         (cons 'redirect_uri uri)
         (cons 'state this-state)))
 
-
 (define (wl-api-header client-id token)
   (list (string-append "X-Access-Token: " token)
         (string-append "X-Client-ID: " client-id)))
@@ -104,7 +87,10 @@
   (apply string-append "http://a.wunderlist.com/api/v1" path))
 
 (define (wl-api-get config path #:params [params #f])
-  (request-fetch/json (make-wl-request config 'GET path)))
+  (let ([path* (if params
+                   (string-append path "?" (alist->form-urlencoded params))
+                   path)])
+    (request-fetch/json (make-wl-request config 'GET path*))))
 
 (define (wl-api-get-lists config [list-id #f])
   (let ([path (cond
@@ -113,29 +99,16 @@
                 [else "/lists"])])
     (wl-api-get config path)))
 
-(define (wl-api-get-tasks config [list-id #f])
+(define (wl-api-get-tasks config list-id)
   (let ([path "/tasks"]
-        [list-id (if (number? list-id) (number->string list-id) list-id)])
+        [list-id (if (number? list-id) (number->string list-id) list-id)]
+        [params (list (cons 'list_id list-id))])
     (wl-api-get config path #:params params)))
 
-(define (wl-lists config)
-  (let* ([client-id (config-client-id config)]
-         [token (config-token config)]
-         [header (wl-api-header client-id token)]
-         [path (wl-path "/lists")]
-         ;; TODO Fix the arity options for make-request
-         [wl-request (make-request 'GET path #"" header)])
-    (request-fetch/json wl-request)))
+(define (wl-api-get-folders config)
+  (wl-api-get config "/folders"))
 
-(define ((wl-list-single-by-id ls-id) config)
-  (let* ([client-id (config-client-id config)]
-         [token (config-token config)]
-         [header (wl-api-header client-id token)]
-         [path (wl-path "/lists" "/" ls-id)]
-         ;; TODO Fix the arity options for make-request
-         [wl-request (make-request 'GET path #"" header)])
-    (request-fetch/json wl-request)))
-
+;; -- Config Struct
 (struct config (client-id token))
 
 (define (wl-list-print wl-list port mode)
@@ -177,26 +150,17 @@
 (define (title wl-list)
   (wl-list-title wl-list))
 
-(define (wl-tasks-by-list-id list-id config)
-  (let* ([path (string-append "/tasks" "?" (uri-decode
-                                            (string-append "list_id="
-                                                           list-id)))]
-         [request (make-wl-request config 'GET path)])
-    (request-fetch/json request)))
-
 (define my-client-id "")
 
 (define my-access-token "")
 
 (define my-config (config my-client-id my-access-token))
 
-(define my-lists (wl-lists my-config))
+(define my-lists (wl-api-get-lists my-config))
 
 ;; (Create Read Update Delete)
 ;; (define (wl-read conf resource))
 
-(provide wl-lists
-         wl-list->string
+(provide wl-list->string
          hash->wl-list
          config)
-
