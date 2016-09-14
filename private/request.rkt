@@ -95,31 +95,6 @@
         (cons 'redirect_uri uri)
         (cons 'state this-state)))
 
-(define my-client-secret "")
-
-(define my-secret-state "")
-
-(define my-redirect-uri "")
-
-(define my-auth-code "")
-
-(define my-client-id "")
-
-(define payload
-  (hash 'client_id my-client-id
-        'client_secret my-client-secret
-        'code my-auth-code))
-
-(define wl-first-req
-  (make-request 'POST
-                "https://www.wunderlist.com/oauth/access_token"
-                (jsexpr->bytes payload)))
-
-(define my-test-req
-  (make-request 'POST
-                "http://httpbin.org/post"
-                (jsexpr->bytes payload)))
-
 
 (define (wl-api-header client-id token)
   (list (string-append "X-Access-Token: " token)
@@ -127,6 +102,21 @@
 
 (define (wl-path . path)
   (apply string-append "http://a.wunderlist.com/api/v1" path))
+
+(define (wl-api-get config path #:params [params #f])
+  (request-fetch/json (make-wl-request config 'GET path)))
+
+(define (wl-api-get-lists config [list-id #f])
+  (let ([path (cond
+                [(string? list-id) (string-append "/lists/" list-id)]
+                [(number? list-id) (string-append "/lists/" (number->string list-id))]
+                [else "/lists"])])
+    (wl-api-get config path)))
+
+(define (wl-api-get-tasks config [list-id #f])
+  (let ([path "/tasks"]
+        [list-id (if (number? list-id) (number->string list-id) list-id)])
+    (wl-api-get config path #:params params)))
 
 (define (wl-lists config)
   (let* ([client-id (config-client-id config)]
@@ -147,13 +137,6 @@
     (request-fetch/json wl-request)))
 
 (struct config (client-id token))
-
-
-(define my-access-token "")
-
-(define my-config (config my-client-id my-access-token))
-
-(define my-lists (wl-lists my-config))
 
 (define (wl-list-print wl-list port mode)
   (let ([title (wl-list-title wl-list)]
@@ -188,20 +171,29 @@
 (define (wl-list->string wl-list)
   (wl-list-title wl-list))
 
-;; (map hash->wl-list my-lists)
-
 (define (public? wl-list)
   (wl-list-is-public wl-list))
 
 (define (title wl-list)
   (wl-list-title wl-list))
 
-(hash->wl-list (car my-lists))
+(define (wl-tasks-by-list-id list-id config)
+  (let* ([path (string-append "/tasks" "?" (uri-decode
+                                            (string-append "list_id="
+                                                           list-id)))]
+         [request (make-wl-request config 'GET path)])
+    (request-fetch/json request)))
+
+(define my-client-id "")
+
+(define my-access-token "")
+
+(define my-config (config my-client-id my-access-token))
+
+(define my-lists (wl-lists my-config))
 
 ;; (Create Read Update Delete)
-
 ;; (define (wl-read conf resource))
-
 
 (provide wl-lists
          wl-list->string
