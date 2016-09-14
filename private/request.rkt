@@ -7,17 +7,15 @@
   (with-handlers ([exn:fail? (λ (exn) (displayln (port->string in-port)))])
     (read-json in-port)))
 
-(struct request (method url data header) #:transparent)
+(struct request (method url data header params) #:transparent)
 
 (define make-request
-  (case-lambda [(method url data header)
-                (request method url data header)]
-               [(method url data)
-                (request method url data '())]
-               [(method url)
-                (request method url #f '())]
-               [(url)
-                (request 'GET url #f '())]))
+  (case-lambda
+    [(method url data header params) (request method url data header params)]
+    [(method url data header) (request method url data header '())]
+    [(method url data) (request method url data '() '())]
+    [(method url) (request method url #f '() '())]
+    [(url) (request 'GET url #f '() '())]))
 
 (define (request-method-pure-port request)
   (let ([data (request-data request)]
@@ -92,6 +90,12 @@
                    path)])
     (request-fetch/json (make-wl-request config 'GET path*))))
 
+(define (wl-api-post config data)
+  (let ([path* (if params
+                   (string-append path "?" (alist->form-urlencoded params))
+                   path)])
+    (request-fetch/json (make-wl-request config 'POST path* data))))
+
 (define (wl-api-get-lists config [list-id #f])
   (let ([path (cond
                 [(string? list-id) (string-append "/lists/" list-id)]
@@ -107,6 +111,12 @@
 
 (define (wl-api-get-folders config)
   (wl-api-get config "/folders"))
+
+(define (wl-api-get-user config)
+  (wl-api-get config "/user"))
+
+(define (wl-api-post-task config data)
+  (wl-api-post config "/tasks" data))
 
 ;; -- Config Struct
 (struct config (client-id token))
