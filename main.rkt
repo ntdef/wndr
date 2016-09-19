@@ -1,4 +1,5 @@
 #lang racket
+(require racket/cmdline)
 
 (module+ test
   (require rackunit))
@@ -33,4 +34,25 @@
 
 (module+ main
   ;; Main entry point, executed when run with the `racket` executable or DrRacket.
-  )
+
+  (define verbose-mode (make-parameter #f))
+  (define profiling-on (make-parameter #f))
+  (define optimize-level (make-parameter 0))
+  (define link-flags (make-parameter null))
+
+  (define (dispatch-cmd cmd argv)
+    (if (string=? "cmd" cmd)
+        (command-line #:program "main cmd"
+                      #:argv argv
+                      #:once-each
+                      [("-v" "--verbose") "Run in verbose mode" (verbose-mode #t)])
+        (displayln "problem"))
+    (displayln (verbose-mode)))
+
+  (define (multi-command [argv (current-command-line-arguments)])
+    (command-line #:argv argv #:args (command . cmd-option)
+                  (dispatch-cmd command cmd-option)))
+  (multi-command)
+  ) ;; end main
+
+
