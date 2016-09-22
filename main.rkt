@@ -40,14 +40,17 @@
   (define optimize-level (make-parameter 0))
   (define link-flags (make-parameter null))
 
+  (require "private/cmd-ls.rkt")
+  (require "private/config.rkt")
+
   (define (dispatch-cmd cmd argv)
-    (if (string=? "cmd" cmd)
-        (command-line #:program "main cmd"
+    (if (string=? "ls" cmd)
+        (command-line #:program "main ls"
                       #:argv argv
                       #:once-each
                       [("-v" "--verbose") "Run in verbose mode" (verbose-mode #t)])
-        (displayln "problem"))
-    (displayln (verbose-mode)))
+        (displayln "else nothing happens"))
+    (cmd-ls-all-lists (file->config "./private/api-config.rkt")))
 
   (define (multi-command [argv (current-command-line-arguments)])
     (command-line #:argv argv #:args (command . cmd-option)

@@ -90,7 +90,7 @@
                    path)])
     (request-fetch/json (make-wl-request config 'GET path*))))
 
-(define (wl-api-post config data)
+(define (wl-api-post config path data #:params [params #f])
   (let ([path* (if params
                    (string-append path "?" (alist->form-urlencoded params))
                    path)])
@@ -173,4 +173,5 @@
 
 (provide wl-list->string
          hash->wl-list
+         wl-api-get-lists
          config)
