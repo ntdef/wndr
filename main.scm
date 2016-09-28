@@ -23,11 +23,11 @@
   (match cmd
     [ls (command-ls args)]))
 
-(define (split-on-first-operand cli-args-head #!optional (cli-args-rest '()))
-  (print "hello world")
-  ()
-
-    )
+(define (split-on-first-operand args-right #!optional (args-left '()))
+  (let ([head (car args-right)])
+    (if (irregex-match '(: "-" (+ (or "-" alpha))) (symbol->string head))
+        (split-on-first-operand (cdr args-right) (cons head args-left))
+        (list (reverse args-left) args-right))))
 
 (receive (options operands) (args:parse (command-line-arguments) opts
                                         #:unrecognized-proc args:ignore-unrecognized-options)
